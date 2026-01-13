@@ -13,6 +13,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: [
+      'localhost',
+      '.emergentagent.com',
+      '.preview.emergentagent.com'
+    ],
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
