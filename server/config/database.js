@@ -8,37 +8,50 @@ const { Sequelize } = require('sequelize');
 
 /**
  * Initialize Sequelize instance with PostgreSQL connection
+ * Supports both DATABASE_URL and individual env vars
  */
-const sequelize = new Sequelize(
-    process.env.DB_NAME,
-    process.env.DB_USER,
-    process.env.DB_PASSWORD,
-    {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT || 5432,
+const sequelize = process.env.DATABASE_URL
+    ? new Sequelize(process.env.DATABASE_URL, {
         dialect: 'postgres',
-
-        // Logging - set to false in production
         logging: process.env.NODE_ENV === 'development' ? console.log : false,
-
-        // Connection pool configuration
         pool: {
-            max: 5,           // Maximum number of connections
-            min: 0,           // Minimum number of connections
-            acquire: 30000,   // Maximum time (ms) to try getting connection
-            idle: 10000       // Maximum time (ms) a connection can be idle
+            max: 5,
+            min: 0,
+            acquire: 30000,
+            idle: 10000
         },
-
-        // Define default options for all models
         define: {
-            timestamps: true,           // Adds createdAt and updatedAt
-            underscored: false,         // Use camelCase for column names
-            freezeTableName: false,     // Pluralize table names
+            timestamps: true,
+            underscored: false,
+            freezeTableName: false,
             createdAt: 'createdAt',
             updatedAt: 'updatedAt'
         }
-    }
-);
+    })
+    : new Sequelize(
+        process.env.DB_NAME,
+        process.env.DB_USER,
+        process.env.DB_PASSWORD,
+        {
+            host: process.env.DB_HOST,
+            port: process.env.DB_PORT || 5432,
+            dialect: 'postgres',
+            logging: process.env.NODE_ENV === 'development' ? console.log : false,
+            pool: {
+                max: 5,
+                min: 0,
+                acquire: 30000,
+                idle: 10000
+            },
+            define: {
+                timestamps: true,
+                underscored: false,
+                freezeTableName: false,
+                createdAt: 'createdAt',
+                updatedAt: 'updatedAt'
+            }
+        }
+    );
 
 /**
  * Test database connection
