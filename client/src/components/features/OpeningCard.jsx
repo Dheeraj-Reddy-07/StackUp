@@ -68,7 +68,7 @@ const OpeningCard = ({ opening }) => {
                     <span>{formatDate(opening.createdAt)}</span>
                 </div>
                 <Link
-                    to={`/openings/${opening._id}`}
+                    to={`/openings/${opening.id}`}
                     className="flex items-center gap-1 text-primary-600 font-medium text-sm hover:text-primary-700 transition-colors"
                 >
                     View Details

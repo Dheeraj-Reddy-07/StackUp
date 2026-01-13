@@ -51,7 +51,7 @@ const BrowsePage = () => {
         if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
         }
-        
+
         searchTimeoutRef.current = setTimeout(() => {
             fetchOpenings(search, projectType);
         }, 500);
@@ -147,7 +147,7 @@ const BrowsePage = () => {
                         </p>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {openings.map((opening) => (
-                                <OpeningCard key={opening._id} opening={opening} />
+                                <OpeningCard key={opening.id} opening={opening} />
                             ))}
                         </div>
                     </div>

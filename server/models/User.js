@@ -4,84 +4,101 @@
 // Represents registered users on StackUp.
 // Contains authentication data and profile information.
 
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { sequelize } = require('../config/database');
 
-const userSchema = new mongoose.Schema({
+const User = sequelize.define('User', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+
     // User's full name
     name: {
-        type: String,
-        required: [true, 'Please provide your name'],
-        trim: true,
-        maxlength: [50, 'Name cannot exceed 50 characters']
+        type: DataTypes.STRING(50),
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'Please provide your name' },
+            len: { args: [1, 50], msg: 'Name cannot exceed 50 characters' }
+        }
     },
 
     // Email address (used for login)
     email: {
-        type: String,
-        required: [true, 'Please provide your email'],
+        type: DataTypes.STRING(100),
+        allowNull: false,
         unique: true,
-        lowercase: true,
-        trim: true,
-        match: [
-            /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-            'Please provide a valid email'
-        ]
+        validate: {
+            notEmpty: { msg: 'Please provide your email' },
+            isEmail: { msg: 'Please provide a valid email' }
+        },
+        set(value) {
+            this.setDataValue('email', value.toLowerCase().trim());
+        }
     },
 
     // Hashed password
     password: {
-        type: String,
-        required: [true, 'Please provide a password'],
-        minlength: [6, 'Password must be at least 6 characters'],
-        select: false // Don't return password in queries by default
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'Please provide a password' },
+            len: { args: [6, 255], msg: 'Password must be at least 6 characters' }
+        }
     },
 
     // College/University name
     college: {
-        type: String,
-        trim: true,
-        maxlength: [100, 'College name cannot exceed 100 characters']
+        type: DataTypes.STRING(100),
+        allowNull: true
     },
 
-    // Array of skill tags
-    skills: [{
-        type: String,
-        trim: true
-    }],
+    // Array of skill tags (stored as JSONB in PostgreSQL)
+    skills: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: []
+    },
 
     // Short bio/description
     bio: {
-        type: String,
-        maxlength: [500, 'Bio cannot exceed 500 characters']
+        type: DataTypes.STRING(500),
+        allowNull: true
     },
 
-    // URL to uploaded resume (Cloudinary)
+    // URL to uploaded resume (local file path)
     resumeUrl: {
-        type: String
-    },
-
-    // Account creation timestamp
-    createdAt: {
-        type: Date,
-        default: Date.now
+        type: DataTypes.STRING,
+        allowNull: true
     }
-});
+}, {
+    tableName: 'users',
+    timestamps: true,
+    indexes: [
+        { unique: true, fields: ['email'] }
+    ],
 
-// ============================================
-// Password Hashing Middleware
-// ============================================
-// Hash password before saving to database
-userSchema.pre('save', async function () {
-    // Only hash if password is modified
-    if (!this.isModified('password')) {
-        return;
+    // Hooks - run before/after certain operations
+    hooks: {
+        // Hash password before creating new user
+        beforeCreate: async (user) => {
+            if (user.password) {
+                const salt = await bcrypt.genSalt(10);
+                user.password = await bcrypt.hash(user.password, salt);
+            }
+        },
+
+        // Hash password before updating if it was modified
+        beforeUpdate: async (user) => {
+            if (user.changed('password')) {
+                const salt = await bcrypt.genSalt(10);
+                user.password = await bcrypt.hash(user.password, salt);
+            }
+        }
     }
-
-    // Generate salt and hash password
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
 });
 
 // ============================================
@@ -93,7 +110,7 @@ userSchema.pre('save', async function () {
  * @param {string} enteredPassword - Plain text password to compare
  * @returns {boolean} - True if passwords match
  */
-userSchema.methods.matchPassword = async function (enteredPassword) {
+User.prototype.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
@@ -101,12 +118,12 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
  * Generate JWT token for authentication
  * @returns {string} - Signed JWT token
  */
-userSchema.methods.getSignedJwtToken = function () {
+User.prototype.getSignedJwtToken = function () {
     return jwt.sign(
-        { id: this._id },
+        { id: this.id },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRE }
     );
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

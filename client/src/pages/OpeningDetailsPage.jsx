@@ -48,7 +48,7 @@ const OpeningDetailsPage = () => {
             setOpening(response.data);
 
             // Check if current user is the owner
-            const ownerCheck = response.data.creator._id === user?._id;
+            const ownerCheck = response.data.creator.id === user?.id;
             setIsOwner(ownerCheck);
 
             // Fetch applications if owner
@@ -220,7 +220,7 @@ const OpeningDetailsPage = () => {
                                     <div className="space-y-4">
                                         {applications.map((app) => (
                                             <ApplicationCard
-                                                key={app._id}
+                                                key={app.id}
                                                 application={app}
                                                 showActions
                                                 onAccept={handleAccept}
@@ -298,13 +298,33 @@ const OpeningDetailsPage = () => {
 
                     <div>
                         <label className="label">Resume (Optional)</label>
-                        <input
-                            type="file"
-                            accept=".pdf"
-                            onChange={(e) => setApplyData(prev => ({ ...prev, resumeFile: e.target.files[0] }))}
-                            className="input"
-                        />
-                        <p className="text-xs text-[var(--color-text-secondary)] mt-1">PDF only, max 5MB</p>
+                        {!applyData.resumeFile ? (
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx"
+                                    onChange={(e) => setApplyData(prev => ({ ...prev, resumeFile: e.target.files[0] }))}
+                                    className="input cursor-pointer"
+                                    id="resume-upload"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 p-3 bg-[var(--color-bg-tertiary)] rounded-lg border border-[var(--color-border)]">
+                                <FileText className="w-5 h-5 text-primary-600 flex-shrink-0" />
+                                <span className="text-sm text-[var(--color-text-primary)] flex-1 truncate">
+                                    {applyData.resumeFile.name}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setApplyData(prev => ({ ...prev, resumeFile: null }))}
+                                    className="p-1 text-[var(--color-text-secondary)] hover:text-error hover:bg-[var(--color-bg-secondary)] rounded transition-colors"
+                                    title="Remove file"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1">PDF, DOC, or DOCX only, max 5MB</p>
                     </div>
 
                     <div className="flex gap-3 pt-4">

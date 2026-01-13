@@ -7,8 +7,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
-const connectDB = require('./config/db');
+const { connectDB } = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
 // Import routes
@@ -21,8 +22,7 @@ const notificationRoutes = require('./routes/notifications');
 const uploadRoutes = require('./routes/upload');
 
 // Import models for Socket.IO
-const Message = require('./models/Message');
-const Team = require('./models/Team');
+const { Message, Team, User } = require('./models');
 const jwt = require('jsonwebtoken');
 
 // Initialize Express app
@@ -50,6 +50,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // ============================================
 // API Routes
 // ============================================
@@ -59,9 +62,7 @@ app.use('/api/applications', applicationRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/files', uploadRoutes); // File retrieval
-
+app.use('/api/files', uploadRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -75,7 +76,7 @@ app.use(errorHandler);
 // Socket.IO Configuration
 // ============================================
 
-// Store connected users: { odId: userId }
+// Store connected users: { socketId: userId }
 const connectedUsers = new Map();
 
 // Socket.IO authentication middleware
@@ -105,7 +106,7 @@ io.on('connection', (socket) => {
     socket.on('join-team', async (teamId) => {
         try {
             // Verify user is a member of this team
-            const team = await Team.findById(teamId);
+            const team = await Team.findByPk(teamId);
 
             if (team && team.isMember(socket.userId)) {
                 socket.join(`team-${teamId}`);
@@ -130,7 +131,7 @@ io.on('connection', (socket) => {
             const { teamId, content } = data;
 
             // Verify user is a member
-            const team = await Team.findById(teamId);
+            const team = await Team.findByPk(teamId);
 
             if (!team || !team.isMember(socket.userId)) {
                 socket.emit('error', { message: 'Not authorized to send messages' });
@@ -139,25 +140,27 @@ io.on('connection', (socket) => {
 
             // Save message to database
             const message = await Message.create({
-                team: teamId,
-                sender: socket.userId,
-                content
+                teamId: teamId,
+                senderId: socket.userId,
+                content: content,
+                readBy: [socket.userId] // Sender has already "read" their own message
             });
 
-            // Initialize readBy with sender (sender has already "read" their own message)
-            message.readBy = [socket.userId];
-            await message.save();
-            
-            // Populate sender and readBy info
-            await message.populate('sender', 'name email');
-            await message.populate('readBy', 'name');
+            // Load sender info
+            await message.reload({
+                include: [{
+                    model: User,
+                    as: 'sender',
+                    attributes: ['id', 'name', 'email']
+                }]
+            });
 
             // Broadcast to all team members
             io.to(`team-${teamId}`).emit('new-message', message);
 
         } catch (error) {
             console.error('Message error:', error);
-            socket.emit('error', { message: 'Error sending message' });
+            socket.emit('error', { message: ' Error sending message' });
         }
     });
 
@@ -177,39 +180,37 @@ io.on('connection', (socket) => {
     socket.on('mark-messages-read', async (data) => {
         try {
             const { teamId } = data;
-            
+
             // Verify user is a member
-            const team = await Team.findById(teamId);
+            const team = await Team.findByPk(teamId);
             if (!team || !team.isMember(socket.userId)) {
                 return;
             }
 
-            // Mark all unread messages in this team as read by this user
-            const result = await Message.updateMany(
-                {
-                    team: teamId,
-                    sender: { $ne: socket.userId },
-                    readBy: { $ne: socket.userId }
-                },
-                { $addToSet: { readBy: socket.userId } }
-            );
+            // Find unread messages in this team
+            const messages = await Message.findAll({
+                where: { teamId: teamId },
+                attributes: ['id', 'senderId', 'readBy']
+            });
 
-            // If messages were updated, fetch and broadcast them
-            if (result.modifiedCount > 0) {
-                const updatedMessages = await Message.find({
-                    team: teamId,
-                    readBy: socket.userId
-                })
-                    .populate('sender', 'name email')
-                    .populate('readBy', 'name')
-                    .sort({ createdAt: -1 })
-                    .limit(10); // Get recent messages that were just marked as read
+            // Mark unread messages as read
+            let updatedCount = 0;
+            for (const msg of messages) {
+                if (msg.senderId !== socket.userId) {
+                    const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+                    if (!readBy.includes(socket.userId)) {
+                        msg.readBy = [...readBy, socket.userId];
+                        await msg.save();
+                        updatedCount++;
+                    }
+                }
+            }
 
-                // Broadcast read status update with message IDs
+            // If messages were updated, broadcast read status
+            if (updatedCount > 0) {
                 io.to(`team-${teamId}`).emit('messages-read', {
                     userId: socket.userId,
-                    teamId,
-                    messageIds: updatedMessages.map(m => m._id.toString())
+                    teamId
                 });
             }
         } catch (error) {
@@ -231,7 +232,7 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
     try {
-        // Connect to MongoDB
+        // Connect to PostgreSQL
         await connectDB();
 
         // Start listening

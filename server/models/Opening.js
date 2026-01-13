@@ -4,92 +4,106 @@
 // Represents a project/hackathon/study group opening.
 // Users create openings to find team members.
 
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const openingSchema = new mongoose.Schema({
+const Opening = sequelize.define('Opening', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+
     // Title of the opening
     title: {
-        type: String,
-        required: [true, 'Please provide a title'],
-        trim: true,
-        maxlength: [100, 'Title cannot exceed 100 characters']
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'Please provide a title' },
+            len: { args: [1, 100], msg: 'Title cannot exceed 100 characters' }
+        }
     },
 
     // Detailed description of the project/opportunity
     description: {
-        type: String,
-        required: [true, 'Please provide a description'],
-        maxlength: [2000, 'Description cannot exceed 2000 characters']
+        type: DataTypes.TEXT,
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'Please provide a description' },
+            len: { args: [1, 2000], msg: 'Description cannot exceed 2000 characters' }
+        }
     },
 
     // Type of project/opportunity
     projectType: {
-        type: String,
-        required: [true, 'Please specify project type'],
-        enum: {
-            values: ['hackathon', 'project', 'startup', 'study'],
-            message: 'Project type must be hackathon, project, startup, or study'
+        type: DataTypes.ENUM('hackathon', 'project', 'startup', 'study'),
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'Please specify project type' },
+            isIn: {
+                args: [['hackathon', 'project', 'startup', 'study']],
+                msg: 'Project type must be hackathon, project, startup, or study'
+            }
         }
     },
 
-    // Skills required for this opening
-    requiredSkills: [{
-        type: String,
-        trim: true
-    }],
+    // Skills required for this opening (stored as JSONB array)
+    requiredSkills: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: []
+    },
 
     // Total number of team slots available
     totalSlots: {
-        type: Number,
-        required: [true, 'Please specify number of slots'],
-        min: [1, 'At least 1 slot required'],
-        max: [20, 'Maximum 20 slots allowed']
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        validate: {
+            notEmpty: { msg: 'Please specify number of slots' },
+            min: { args: [1], msg: 'At least 1 slot required' },
+            max: { args: [20], msg: 'Maximum 20 slots allowed' }
+        }
     },
 
     // Number of slots already filled
     filledSlots: {
-        type: Number,
-        default: 0
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
     },
 
-    // User who created this opening
-    creator: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+    // User who created this opening (foreign key)
+    creatorId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'users',
+            key: 'id'
+        }
     },
 
     // Opening status
     status: {
-        type: String,
-        enum: ['open', 'closed'],
-        default: 'open'
-    },
-
-    // Creation timestamp
-    createdAt: {
-        type: Date,
-        default: Date.now
+        type: DataTypes.ENUM('open', 'closed'),
+        allowNull: false,
+        defaultValue: 'open'
     }
+}, {
+    tableName: 'openings',
+    timestamps: true,
+    indexes: [
+        { fields: ['creatorId'] },
+        { fields: ['projectType'] },
+        { fields: ['status'] },
+        { fields: ['createdAt'] }
+    ]
 });
 
 // ============================================
-// Virtual for available slots
+// Virtual Fields
 // ============================================
-openingSchema.virtual('availableSlots').get(function () {
+Opening.prototype.getAvailableSlots = function () {
     return this.totalSlots - this.filledSlots;
-});
+};
 
-// Ensure virtuals are included in JSON output
-openingSchema.set('toJSON', { virtuals: true });
-openingSchema.set('toObject', { virtuals: true });
-
-// ============================================
-// Indexes for faster queries
-// ============================================
-openingSchema.index({ creator: 1 });
-openingSchema.index({ projectType: 1 });
-openingSchema.index({ status: 1 });
-openingSchema.index({ createdAt: -1 });
-
-module.exports = mongoose.model('Opening', openingSchema);
+module.exports = Opening;

@@ -4,18 +4,21 @@
 // Modal to preview PDF files with download option
 
 import { X, Download } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 const PDFPreviewModal = ({ isOpen, onClose, pdfUrl, fileName = 'document.pdf' }) => {
+    const [downloading, setDownloading] = useState(false);
+
     // Convert relative URL to absolute URL for iframe
     const getAbsoluteUrl = (url) => {
         if (!url) return null;
-        
+
         // If already absolute, return as is
         if (url.startsWith('http://') || url.startsWith('https://')) {
             return url;
         }
-        
+
         // Convert relative to absolute
         const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         if (url.startsWith('/')) {
@@ -25,6 +28,34 @@ const PDFPreviewModal = ({ isOpen, onClose, pdfUrl, fileName = 'document.pdf' })
     };
 
     const absoluteUrl = getAbsoluteUrl(pdfUrl);
+
+    // Handle actual file download
+    const handleDownload = async () => {
+        if (!absoluteUrl) return;
+
+        setDownloading(true);
+        try {
+            const response = await fetch(absoluteUrl);
+            if (!response.ok) throw new Error('Download failed');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+
+            toast.success('Download started!');
+        } catch (error) {
+            console.error('Download error:', error);
+            toast.error('Failed to download file');
+        } finally {
+            setDownloading(false);
+        }
+    };
 
     useEffect(() => {
         // Handle escape key
@@ -60,16 +91,14 @@ const PDFPreviewModal = ({ isOpen, onClose, pdfUrl, fileName = 'document.pdf' })
                         {fileName}
                     </h3>
                     <div className="flex items-center gap-2">
-                        <a
-                            href={absoluteUrl}
-                            download={fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-lg transition-colors"
+                        <button
+                            onClick={handleDownload}
+                            disabled={downloading}
+                            className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-lg transition-colors disabled:opacity-50"
                             title="Download PDF"
                         >
-                            <Download className="w-5 h-5" />
-                        </a>
+                            <Download className={`w-5 h-5 ${downloading ? 'animate-pulse' : ''}`} />
+                        </button>
                         <button
                             onClick={onClose}
                             className="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-lg transition-colors"
@@ -90,16 +119,14 @@ const PDFPreviewModal = ({ isOpen, onClose, pdfUrl, fileName = 'document.pdf' })
                     >
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                             <p className="text-[var(--color-text-primary)] mb-4">
-                                Unable to display PDF in browser. 
+                                Unable to display PDF in browser.
                             </p>
-                            <a
-                                href={absoluteUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary-600 hover:text-primary-700 underline"
+                            <button
+                                onClick={handleDownload}
+                                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                             >
-                                Click here to open PDF in a new tab
-                            </a>
+                                Download PDF
+                            </button>
                         </div>
                     </object>
                 </div>
@@ -109,3 +136,4 @@ const PDFPreviewModal = ({ isOpen, onClose, pdfUrl, fileName = 'document.pdf' })
 };
 
 export default PDFPreviewModal;
+

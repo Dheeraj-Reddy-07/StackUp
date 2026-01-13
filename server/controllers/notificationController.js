@@ -3,7 +3,7 @@
 // ============================================
 // Handle user notifications
 
-const Notification = require('../models/Notification');
+const { Notification } = require('../models');
 
 // ============================================
 // @desc    Get user's notifications
@@ -12,14 +12,18 @@ const Notification = require('../models/Notification');
 // ============================================
 exports.getNotifications = async (req, res, next) => {
     try {
-        const notifications = await Notification.find({ user: req.user.id })
-            .sort({ createdAt: -1 })
-            .limit(50); // Limit to last 50 notifications
+        const notifications = await Notification.findAll({
+            where: { userId: req.user.id },
+            order: [['createdAt', 'DESC']],
+            limit: 50 // Limit to last 50 notifications
+        });
 
         // Count unread notifications
-        const unreadCount = await Notification.countDocuments({
-            user: req.user.id,
-            read: false
+        const unreadCount = await Notification.count({
+            where: {
+                userId: req.user.id,
+                read: false
+            }
         });
 
         res.status(200).json({
@@ -40,7 +44,7 @@ exports.getNotifications = async (req, res, next) => {
 // ============================================
 exports.markAsRead = async (req, res, next) => {
     try {
-        const notification = await Notification.findById(req.params.id);
+        const notification = await Notification.findByPk(req.params.id);
 
         if (!notification) {
             return res.status(404).json({
@@ -50,7 +54,7 @@ exports.markAsRead = async (req, res, next) => {
         }
 
         // Verify ownership
-        if (notification.user.toString() !== req.user.id) {
+        if (notification.userId !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized'
@@ -76,9 +80,14 @@ exports.markAsRead = async (req, res, next) => {
 // ============================================
 exports.markAllAsRead = async (req, res, next) => {
     try {
-        await Notification.updateMany(
-            { user: req.user.id, read: false },
-            { read: true }
+        await Notification.update(
+            { read: true },
+            {
+                where: {
+                    userId: req.user.id,
+                    read: false
+                }
+            }
         );
 
         res.status(200).json({
@@ -97,7 +106,7 @@ exports.markAllAsRead = async (req, res, next) => {
 // ============================================
 exports.deleteNotification = async (req, res, next) => {
     try {
-        const notification = await Notification.findById(req.params.id);
+        const notification = await Notification.findByPk(req.params.id);
 
         if (!notification) {
             return res.status(404).json({
@@ -107,14 +116,14 @@ exports.deleteNotification = async (req, res, next) => {
         }
 
         // Verify ownership
-        if (notification.user.toString() !== req.user.id) {
+        if (notification.userId !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized'
             });
         }
 
-        await Notification.findByIdAndDelete(req.params.id);
+        await notification.destroy();
 
         res.status(200).json({
             success: true,

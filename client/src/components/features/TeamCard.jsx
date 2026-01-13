@@ -42,7 +42,7 @@ const TeamCard = ({ team }) => {
             <div className="flex -space-x-2 mb-4">
                 {allMembers.slice(0, 5).map((member, index) => (
                     <Avatar
-                        key={member?._id || index}
+                        key={member?.id || index}
                         name={member?.name}
                         size="sm"
                         className="ring-2 ring-[var(--color-bg-primary)]"
@@ -58,7 +58,7 @@ const TeamCard = ({ team }) => {
             {/* Actions */}
             <div className="pt-4 border-t border-[var(--color-border)]">
                 <Link
-                    to={`/teams/${team._id}`}
+                    to={`/teams/${team.id}`}
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors w-full"
                 >
                     View Team

@@ -19,18 +19,18 @@ const ApplicationCard = ({
     // Get proper PDF URL - handle both relative and absolute URLs
     const getPDFUrl = () => {
         if (!application.resumeUrl) return null;
-        
+
         // If it's already a full URL (http/https), use it as is
         if (application.resumeUrl.startsWith('http://') || application.resumeUrl.startsWith('https://')) {
             return application.resumeUrl + '#toolbar=0';
         }
-        
+
         // If it's a relative path (starts with /), make it absolute
         if (application.resumeUrl.startsWith('/')) {
             const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
             return baseURL + application.resumeUrl + '#toolbar=0';
         }
-        
+
         // If it's just a file ID, construct the URL
         const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         return `${baseURL}/api/files/${application.resumeUrl}#toolbar=0`;
@@ -127,7 +127,7 @@ const ApplicationCard = ({
                         <Button
                             variant="danger"
                             size="sm"
-                            onClick={() => onReject(application._id)}
+                            onClick={() => onReject(application.id)}
                             disabled={isProcessing}
                         >
                             <X className="w-4 h-4" />
@@ -136,7 +136,7 @@ const ApplicationCard = ({
                         <Button
                             variant="success"
                             size="sm"
-                            onClick={() => onAccept(application._id)}
+                            onClick={() => onAccept(application.id)}
                             disabled={isProcessing}
                             loading={isProcessing}
                         >

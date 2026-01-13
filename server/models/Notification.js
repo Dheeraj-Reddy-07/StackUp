@@ -4,63 +4,72 @@
 // In-app notifications for user actions.
 // Supports various notification types.
 
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const notificationSchema = new mongoose.Schema({
-    // User receiving the notification
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+const Notification = sequelize.define('Notification', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
+    },
+
+    // User receiving the notification (foreign key)
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'users',
+            key: 'id'
+        }
     },
 
     // Type of notification
     type: {
-        type: String,
-        required: true,
-        enum: [
-            'application_received',  // When someone applies to your opening
-            'application_accepted',  // When your application is accepted
-            'application_rejected',  // When your application is rejected
-            'team_message'           // New message in team chat
-        ]
+        type: DataTypes.ENUM(
+            'application_received',
+            'application_accepted',
+            'application_rejected',
+            'team_message'
+        ),
+        allowNull: false
     },
 
     // Human-readable notification message
     message: {
-        type: String,
-        required: true,
-        maxlength: [500, 'Notification message cannot exceed 500 characters']
+        type: DataTypes.STRING(500),
+        allowNull: false,
+        validate: {
+            len: { args: [1, 500], msg: 'Notification message cannot exceed 500 characters' }
+        }
     },
 
     // Read status
     read: {
-        type: Boolean,
-        default: false
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     },
 
     // Related entity ID (opening, application, or team)
     relatedId: {
-        type: mongoose.Schema.Types.ObjectId
+        type: DataTypes.INTEGER,
+        allowNull: true
     },
 
     // What the relatedId refers to
     relatedModel: {
-        type: String,
-        enum: ['Opening', 'Application', 'Team']
-    },
-
-    // Notification timestamp
-    createdAt: {
-        type: Date,
-        default: Date.now
+        type: DataTypes.ENUM('Opening', 'Application', 'Team'),
+        allowNull: true
     }
+}, {
+    tableName: 'notifications',
+    timestamps: true,
+    updatedAt: false,  // Notifications don't need updatedAt
+    indexes: [
+        { fields: ['userId', 'read'] },
+        { fields: ['userId', 'createdAt'] }
+    ]
 });
 
-// ============================================
-// Indexes for efficient queries
-// ============================================
-notificationSchema.index({ user: 1, read: 1 });
-notificationSchema.index({ user: 1, createdAt: -1 });
-
-module.exports = mongoose.model('Notification', notificationSchema);
+module.exports = Notification;

@@ -3,7 +3,7 @@
 // ============================================
 // Handles user authentication: register, login, profile
 
-const User = require('../models/User');
+const { User } = require('../models');
 
 // ============================================
 // @desc    Register a new user
@@ -15,7 +15,7 @@ exports.register = async (req, res, next) => {
         const { name, email, password, college, skills, bio } = req.body;
 
         // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ where: { email } });
         if (existingUser) {
             return res.status(400).json({
                 success: false,
@@ -57,8 +57,8 @@ exports.login = async (req, res, next) => {
             });
         }
 
-        // Find user and include password for comparison
-        const user = await User.findOne({ email }).select('+password');
+        // Find user (password is included by default in Sequelize)
+        const user = await User.findOne({ where: { email } });
 
         if (!user) {
             return res.status(401).json({
@@ -91,7 +91,9 @@ exports.login = async (req, res, next) => {
 // ============================================
 exports.getMe = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user.id);
+        const user = await User.findByPk(req.user.id, {
+            attributes: { exclude: ['password'] }
+        });
 
         res.status(200).json({
             success: true,
@@ -111,23 +113,33 @@ exports.updateProfile = async (req, res, next) => {
     try {
         const { name, college, skills, bio, resumeUrl } = req.body;
 
-        // Fields to update
-        const fieldsToUpdate = {};
-        if (name) fieldsToUpdate.name = name;
-        if (college !== undefined) fieldsToUpdate.college = college;
-        if (skills) fieldsToUpdate.skills = skills;
-        if (bio !== undefined) fieldsToUpdate.bio = bio;
-        if (resumeUrl !== undefined) fieldsToUpdate.resumeUrl = resumeUrl;
+        // Find user
+        const user = await User.findByPk(req.user.id);
 
-        const user = await User.findByIdAndUpdate(
-            req.user.id,
-            fieldsToUpdate,
-            { new: true, runValidators: true }
-        );
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Update fields
+        if (name !== undefined) user.name = name;
+        if (college !== undefined) user.college = college;
+        if (skills !== undefined) user.skills = skills;
+        if (bio !== undefined) user.bio = bio;
+        if (resumeUrl !== undefined) user.resumeUrl = resumeUrl;
+
+        // Save changes (triggers validation)
+        await user.save();
+
+        // Remove password from response
+        const userData = user.toJSON();
+        delete userData.password;
 
         res.status(200).json({
             success: true,
-            data: user
+            data: userData
         });
     } catch (error) {
         next(error);
@@ -142,7 +154,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     const token = user.getSignedJwtToken();
 
     // Remove password from response
-    const userData = user.toObject();
+    const userData = user.toJSON();
     delete userData.password;
 
     res.status(statusCode).json({

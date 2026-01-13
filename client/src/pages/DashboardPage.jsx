@@ -145,7 +145,7 @@ const DashboardPage = () => {
     const handleMarkRead = async (id) => {
         try {
             await markAsRead(id);
-            setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
         } catch (error) {
             console.error('Failed to mark notification as read');
         }
@@ -187,7 +187,7 @@ const DashboardPage = () => {
         e.stopPropagation();
         try {
             await markAsRead(notificationId);
-            setNotifications(prev => prev.map(n => n._id === notificationId ? { ...n, read: true } : n));
+            setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
             toast.success('Notification marked as read');
         } catch (error) {
             toast.error('Failed to mark notification as read');
@@ -198,7 +198,7 @@ const DashboardPage = () => {
         e.stopPropagation();
         try {
             await deleteNotification(notificationId);
-            setNotifications(prev => prev.filter(n => n._id !== notificationId));
+            setNotifications(prev => prev.filter(n => n.id !== notificationId));
             toast.success('Notification deleted');
         } catch (error) {
             toast.error('Failed to delete notification');
@@ -295,7 +295,7 @@ const DashboardPage = () => {
                                 ) : (
                                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {openings.map((opening) => (
-                                            <OpeningCard key={opening._id} opening={opening} />
+                                            <OpeningCard key={opening.id} opening={opening} />
                                         ))}
                                     </div>
                                 )}
@@ -320,7 +320,7 @@ const DashboardPage = () => {
                                 ) : (
                                     <div className="space-y-4">
                                         {applications.map((application) => (
-                                            <Card key={application._id} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                            <Card key={application.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                 <div>
                                                     <h4 className="font-semibold text-[var(--color-text-primary)]">
                                                         {application.opening?.title}
@@ -360,7 +360,7 @@ const DashboardPage = () => {
                                 ) : (
                                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {teams.map((team) => (
-                                            <TeamCard key={team._id} team={team} />
+                                            <TeamCard key={team.id} team={team} />
                                         ))}
                                     </div>
                                 )}
@@ -385,7 +385,7 @@ const DashboardPage = () => {
                                 ) : (
                                     <div className="space-y-2">
                                         {chats.map((team) => {
-                                            const stats = chatStats[team._id] || {};
+                                            const stats = chatStats[team.id] || {};
                                             const unreadCount = stats.unreadCount || 0;
                                             const lastMessageTime = stats.lastMessageTime
                                                 ? formatRelativeTime(stats.lastMessageTime)
@@ -393,8 +393,8 @@ const DashboardPage = () => {
                                             const hasUnread = unreadCount > 0;
                                             return (
                                                 <Link
-                                                    key={team._id}
-                                                    to={`/teams/${team._id}/chat`}
+                                                    key={team.id}
+                                                    to={`/teams/${team.id}/chat`}
                                                     className="block"
                                                 >
                                                     <Card className="hover:bg-[var(--color-bg-tertiary)] transition-all cursor-pointer">
@@ -463,7 +463,7 @@ const DashboardPage = () => {
                                     <div className="space-y-3">
                                         {notifications.map((notification) => (
                                             <Card
-                                                key={notification._id}
+                                                key={notification.id}
                                                 className={`transition-colors hover:bg-[var(--color-bg-tertiary)] ${!notification.read ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-100 dark:border-primary-800' : ''
                                                     }`}
                                             >
@@ -479,7 +479,7 @@ const DashboardPage = () => {
                                                     <div className="flex items-center gap-2 flex-shrink-0">
                                                         {!notification.read && (
                                                             <button
-                                                                onClick={(e) => handleMarkSingleRead(notification._id, e)}
+                                                                onClick={(e) => handleMarkSingleRead(notification.id, e)}
                                                                 className="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded transition-colors"
                                                                 title="Mark as read"
                                                             >
@@ -489,7 +489,7 @@ const DashboardPage = () => {
                                                             </button>
                                                         )}
                                                         <button
-                                                            onClick={(e) => handleDeleteNotification(notification._id, e)}
+                                                            onClick={(e) => handleDeleteNotification(notification.id, e)}
                                                             className="p-1.5 text-[var(--color-text-secondary)] hover:text-red-600 hover:bg-[var(--color-bg-tertiary)] rounded transition-colors"
                                                             title="Delete notification"
                                                         >

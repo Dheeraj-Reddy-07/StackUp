@@ -67,7 +67,7 @@ const ChatPage = () => {
             setMessages(prev => [...prev, message]);
             scrollToBottom();
             // Mark as read if it's not our own message
-            if (message.sender._id !== user._id && id) {
+            if (message.sender.id !== user.id && id) {
                 markMessagesRead(id);
             }
         });
@@ -89,11 +89,11 @@ const ChatPage = () => {
             // Update read status for messages
             if (data.messageIds) {
                 setMessages(prev => prev.map(msg => {
-                    if (data.messageIds.includes(msg._id) && data.userId) {
+                    if (data.messageIds.includes(msg.id) && data.userId) {
                         const readBy = msg.readBy || [];
                         const userIdStr = data.userId.toString();
                         const alreadyRead = readBy.some(r => {
-                            const id = r._id || r;
+                            const id = r.id || r;
                             return id.toString() === userIdStr;
                         });
                         if (!alreadyRead) {
@@ -214,7 +214,7 @@ const ChatPage = () => {
         dateMessages.forEach((message, index) => {
             const prevMessage = index > 0 ? dateMessages[index - 1] : null;
             const timeDiff = prevMessage ? new Date(message.createdAt) - new Date(prevMessage.createdAt) : Infinity;
-            const sameSender = prevMessage && prevMessage.sender._id === message.sender._id;
+            const sameSender = prevMessage && prevMessage.sender.id === message.sender.id;
             const shouldGroup = sameSender && timeDiff < 60000; // Within 1 minute
 
             if (shouldGroup && grouped.length > 0) {
@@ -313,18 +313,18 @@ const ChatPage = () => {
 
                                 {/* Messages */}
                                 {messageGroups.map((messageGroup, groupIndex) => {
-                                    const isOwn = messageGroup.sender._id === user._id;
+                                    const isOwn = messageGroup.sender.id === user.id;
                                     const firstMessage = messageGroup.messages[0];
                                     const lastMessage = messageGroup.messages[messageGroup.messages.length - 1];
 
                                     // Calculate read receipts
                                     const readBy = lastMessage.readBy || [];
                                     const readByIds = readBy.map(r => {
-                                        if (typeof r === 'object' && r._id) return r._id.toString();
+                                        if (typeof r === 'object' && r.id) return r.id.toString();
                                         return r.toString();
                                     });
-                                    const senderId = messageGroup.sender._id.toString();
-                                    const otherMembers = allMembers.filter(m => m && m._id && m._id.toString() !== senderId);
+                                    const senderId = messageGroup.sender.id.toString();
+                                    const otherMembers = allMembers.filter(m => m && m.id && m.id.toString() !== senderId);
                                     const readByOthers = readByIds.filter(id => id !== senderId);
                                     const isReadByAll = otherMembers.length > 0 && readByOthers.length >= otherMembers.length;
                                     const showSingleTick = readByOthers.length > 0 && !isReadByAll;
@@ -332,7 +332,7 @@ const ChatPage = () => {
 
                                     return (
                                         <div
-                                            key={`${firstMessage._id}-${groupIndex}`}
+                                            key={`${firstMessage.id}-${groupIndex}`}
                                             className={`flex gap-2 mb-3 ${isOwn ? 'flex-row-reverse' : ''}`}
                                         >
                                             {!isOwn && (
@@ -348,7 +348,7 @@ const ChatPage = () => {
                                                     {messageGroup.messages.map((message, msgIndex) => {
                                                         return (
                                                             <div
-                                                                key={message._id}
+                                                                key={message.id}
                                                                 className={`${isOwn ? 'chat-bubble-sent' : 'chat-bubble-received'} relative max-w-[75%] min-w-[200px] ${isOwn ? 'self-end' : 'self-start'}`}
                                                             >
                                                                 <p className="pr-[70px] pb-1" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap' }}>

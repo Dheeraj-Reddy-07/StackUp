@@ -113,14 +113,14 @@ const TeamPage = () => {
                             <div className="space-y-4">
                                 {allMembers.map((member, index) => (
                                     <div
-                                        key={member?._id || index}
+                                        key={member?.id || index}
                                         className="flex items-center gap-4 p-4 bg-[var(--color-bg-tertiary)] rounded-xl"
                                     >
                                         <Avatar name={member?.name} size="lg" />
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
                                                 <h4 className="font-semibold text-[var(--color-text-primary)]">{member?.name}</h4>
-                                                {member?._id === team.owner._id && (
+                                                {member?.id === team.owner.id && (
                                                     <Badge variant="primary">Owner</Badge>
                                                 )}
                                             </div>

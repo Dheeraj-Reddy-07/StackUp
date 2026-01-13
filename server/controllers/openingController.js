@@ -3,8 +3,8 @@
 // ============================================
 // CRUD operations for project openings
 
-const Opening = require('../models/Opening');
-const Team = require('../models/Team');
+const { Opening, Team, User } = require('../models');
+const { Op } = require('sequelize');
 
 // ============================================
 // @desc    Get all openings (with filters)
@@ -15,52 +15,60 @@ exports.getOpenings = async (req, res, next) => {
     try {
         const { projectType, skills, status, search } = req.query;
 
-        // Build query
-        const query = {};
+        // Build where clause
+        const where = {};
 
         // Filter by project type
         if (projectType) {
-            query.projectType = projectType;
+            where.projectType = projectType;
         }
 
         // Filter by status (default to open)
-        query.status = status || 'open';
+        where.status = status || 'open';
 
-        // Filter by required skills (match any)
-        if (skills) {
-            const skillsArray = skills.split(',').map(s => s.trim());
-            query.requiredSkills = { $in: skillsArray };
-        }
-
-        // Search in title, description, and required skills
+        // Search in title or description
         if (search) {
-            query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { requiredSkills: { $regex: search, $options: 'i' } }
+            where[Op.or] = [
+                { title: { [Op.iLike]: `%${search}%` } },
+                { description: { [Op.iLike]: `%${search}%` } }
             ];
         }
 
-        const openings = await Opening.find(query)
-            .populate('creator', 'name email college')
-            .sort({ createdAt: -1 });
+        const openings = await Opening.findAll({
+            where,
+            include: [
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'name', 'email', 'college']
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
 
-        // Get all teams to check if they're full
-        const openingsWithTeams = await Promise.all(
-            openings.map(async (opening) => {
-                const team = await Team.findOne({ opening: opening._id });
-                return { opening, team };
-            })
-        );
+        // Filter by skills if provided (skills are stored as JSONB)
+        let filteredOpenings = openings;
+        if (skills) {
+            const skillsArray = skills.split(',').map(s => s.trim());
+            filteredOpenings = openings.filter(opening => {
+                if (!opening.requiredSkills || !Array.isArray(opening.requiredSkills)) return false;
+                return skillsArray.some(skill => opening.requiredSkills.includes(skill));
+            });
+        }
 
-        // Filter out full teams
-        const availableOpenings = openingsWithTeams
-            .filter(({ opening, team }) => {
-                if (!team) return true; // No team yet, still available
-                const currentSize = team.members.length + 1; // +1 for owner
-                return currentSize < opening.totalSlots;
-            })
-            .map(({ opening }) => opening);
+        // Check team sizes to filter out full openings
+        const availableOpenings = [];
+        for (const opening of filteredOpenings) {
+            const team = await Team.findOne({ where: { openingId: opening.id } });
+            if (!team) {
+                availableOpenings.push(opening);
+                continue;
+            }
+            const currentSize = (Array.isArray(team.members) ? team.members.length : 0) + 1; // +1 for owner
+            if (currentSize < opening.totalSlots) {
+                availableOpenings.push(opening);
+            }
+        }
 
         res.status(200).json({
             success: true,
@@ -79,8 +87,15 @@ exports.getOpenings = async (req, res, next) => {
 // ============================================
 exports.getOpening = async (req, res, next) => {
     try {
-        const opening = await Opening.findById(req.params.id)
-            .populate('creator', 'name email college skills bio');
+        const opening = await Opening.findByPk(req.params.id, {
+            include: [
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'name', 'email', 'college', 'skills', 'bio']
+                }
+            ]
+        });
 
         if (!opening) {
             return res.status(404).json({
@@ -114,18 +129,26 @@ exports.createOpening = async (req, res, next) => {
             projectType,
             requiredSkills: requiredSkills || [],
             totalSlots,
-            creator: req.user.id
+            creatorId: req.user.id
         });
 
         // Create team for this opening (owner is automatically added)
         await Team.create({
-            opening: opening._id,
-            owner: req.user.id,
+            openingId: opening.id,
+            ownerId: req.user.id,
             members: []
         });
 
-        // Populate creator info before sending response
-        await opening.populate('creator', 'name email college');
+        // Reload with creator info
+        await opening.reload({
+            include: [
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'name', 'email', 'college']
+                }
+            ]
+        });
 
         res.status(201).json({
             success: true,
@@ -143,7 +166,7 @@ exports.createOpening = async (req, res, next) => {
 // ============================================
 exports.updateOpening = async (req, res, next) => {
     try {
-        let opening = await Opening.findById(req.params.id);
+        const opening = await Opening.findByPk(req.params.id);
 
         if (!opening) {
             return res.status(404).json({
@@ -153,7 +176,7 @@ exports.updateOpening = async (req, res, next) => {
         }
 
         // Check ownership
-        if (opening.creator.toString() !== req.user.id) {
+        if (opening.creatorId !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to update this opening'
@@ -163,19 +186,25 @@ exports.updateOpening = async (req, res, next) => {
         // Fields that can be updated
         const { title, description, projectType, requiredSkills, totalSlots, status } = req.body;
 
-        const fieldsToUpdate = {};
-        if (title) fieldsToUpdate.title = title;
-        if (description) fieldsToUpdate.description = description;
-        if (projectType) fieldsToUpdate.projectType = projectType;
-        if (requiredSkills) fieldsToUpdate.requiredSkills = requiredSkills;
-        if (totalSlots) fieldsToUpdate.totalSlots = totalSlots;
-        if (status) fieldsToUpdate.status = status;
+        if (title !== undefined) opening.title = title;
+        if (description !== undefined) opening.description = description;
+        if (projectType !== undefined) opening.projectType = projectType;
+        if (requiredSkills !== undefined) opening.requiredSkills = requiredSkills;
+        if (totalSlots !== undefined) opening.totalSlots = totalSlots;
+        if (status !== undefined) opening.status = status;
 
-        opening = await Opening.findByIdAndUpdate(
-            req.params.id,
-            fieldsToUpdate,
-            { new: true, runValidators: true }
-        ).populate('creator', 'name email college');
+        await opening.save();
+
+        // Reload with creator info
+        await opening.reload({
+            include: [
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'name', 'email', 'college']
+                }
+            ]
+        });
 
         res.status(200).json({
             success: true,
@@ -193,7 +222,7 @@ exports.updateOpening = async (req, res, next) => {
 // ============================================
 exports.deleteOpening = async (req, res, next) => {
     try {
-        const opening = await Opening.findById(req.params.id);
+        const opening = await Opening.findByPk(req.params.id);
 
         if (!opening) {
             return res.status(404).json({
@@ -203,17 +232,17 @@ exports.deleteOpening = async (req, res, next) => {
         }
 
         // Check ownership
-        if (opening.creator.toString() !== req.user.id) {
+        if (opening.creatorId !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to delete this opening'
             });
         }
 
-        await opening.deleteOne();
+        await opening.destroy();
 
         // Also delete associated team
-        await Team.deleteOne({ opening: req.params.id });
+        await Team.destroy({ where: { openingId: req.params.id } });
 
         res.status(200).json({
             success: true,
@@ -231,9 +260,17 @@ exports.deleteOpening = async (req, res, next) => {
 // ============================================
 exports.getMyOpenings = async (req, res, next) => {
     try {
-        const openings = await Opening.find({ creator: req.user.id })
-            .populate('creator', 'name email college')
-            .sort({ createdAt: -1 });
+        const openings = await Opening.findAll({
+            where: { creatorId: req.user.id },
+            include: [
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'name', 'email', 'college']
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
 
         res.status(200).json({
             success: true,

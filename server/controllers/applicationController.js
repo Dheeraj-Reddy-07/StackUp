@@ -3,10 +3,8 @@
 // ============================================
 // Handle applications to join openings
 
-const Application = require('../models/Application');
-const Opening = require('../models/Opening');
-const Team = require('../models/Team');
-const Notification = require('../models/Notification');
+const { Application, Opening, Team, Notification, User } = require('../models');
+const { sequelize } = require('../config/database');
 
 // ============================================
 // @desc    Submit application to an opening
@@ -18,7 +16,13 @@ exports.createApplication = async (req, res, next) => {
         const { openingId, message, resumeUrl } = req.body;
 
         // Check if opening exists
-        const opening = await Opening.findById(openingId).populate('creator', 'name');
+        const opening = await Opening.findByPk(openingId, {
+            include: [{
+                model: User,
+                as: 'creator',
+                attributes: ['id', 'name']
+            }]
+        });
 
         if (!opening) {
             return res.status(404).json({
@@ -44,7 +48,7 @@ exports.createApplication = async (req, res, next) => {
         }
 
         // Prevent self-application
-        if (opening.creator._id.toString() === req.user.id) {
+        if (opening.creatorId === req.user.id) {
             return res.status(400).json({
                 success: false,
                 message: 'You cannot apply to your own opening'
@@ -53,8 +57,10 @@ exports.createApplication = async (req, res, next) => {
 
         // Check for duplicate application
         const existingApplication = await Application.findOne({
-            opening: openingId,
-            applicant: req.user.id
+            where: {
+                openingId: openingId,
+                applicantId: req.user.id
+            }
         });
 
         if (existingApplication) {
@@ -66,24 +72,36 @@ exports.createApplication = async (req, res, next) => {
 
         // Create application
         const application = await Application.create({
-            opening: openingId,
-            applicant: req.user.id,
+            openingId: openingId,
+            applicantId: req.user.id,
             message,
             resumeUrl
         });
 
         // Create notification for opening creator
         await Notification.create({
-            user: opening.creator._id,
+            userId: opening.creatorId,
             type: 'application_received',
             message: `${req.user.name} applied to "${opening.title}"`,
-            relatedId: opening._id, // Use opening ID so we can navigate to opening details page
+            relatedId: opening.id,
             relatedModel: 'Opening'
         });
 
-        // Populate applicant info
-        await application.populate('applicant', 'name email college skills');
-        await application.populate('opening', 'title');
+        // Reload with associations
+        await application.reload({
+            include: [
+                {
+                    model: User,
+                    as: 'applicant',
+                    attributes: ['id', 'name', 'email', 'college', 'skills']
+                },
+                {
+                    model: Opening,
+                    as: 'opening',
+                    attributes: ['id', 'title']
+                }
+            ]
+        });
 
         res.status(201).json({
             success: true,
@@ -101,16 +119,22 @@ exports.createApplication = async (req, res, next) => {
 // ============================================
 exports.getMyApplications = async (req, res, next) => {
     try {
-        const applications = await Application.find({ applicant: req.user.id })
-            .populate('opening', 'title projectType status creator')
-            .populate({
-                path: 'opening',
-                populate: {
-                    path: 'creator',
-                    select: 'name'
+        const applications = await Application.findAll({
+            where: { applicantId: req.user.id },
+            include: [
+                {
+                    model: Opening,
+                    as: 'opening',
+                    attributes: ['id', 'title', 'projectType', 'status'],
+                    include: [{
+                        model: User,
+                        as: 'creator',
+                        attributes: ['id', 'name']
+                    }]
                 }
-            })
-            .sort({ createdAt: -1 });
+            ],
+            order: [['createdAt', 'DESC']]
+        });
 
         res.status(200).json({
             success: true,
@@ -129,7 +153,7 @@ exports.getMyApplications = async (req, res, next) => {
 // ============================================
 exports.getOpeningApplications = async (req, res, next) => {
     try {
-        const opening = await Opening.findById(req.params.openingId);
+        const opening = await Opening.findByPk(req.params.openingId);
 
         if (!opening) {
             return res.status(404).json({
@@ -139,16 +163,22 @@ exports.getOpeningApplications = async (req, res, next) => {
         }
 
         // Only owner can view applications
-        if (opening.creator.toString() !== req.user.id) {
+        if (opening.creatorId !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to view these applications'
             });
         }
 
-        const applications = await Application.find({ opening: req.params.openingId })
-            .populate('applicant', 'name email college skills bio resumeUrl')
-            .sort({ createdAt: -1 });
+        const applications = await Application.findAll({
+            where: { openingId: req.params.openingId },
+            include: [{
+                model: User,
+                as: 'applicant',
+                attributes: ['id', 'name', 'email', 'college', 'skills', 'bio', 'resumeUrl']
+            }],
+            order: [['createdAt', 'DESC']]
+        });
 
         res.status(200).json({
             success: true,
@@ -166,12 +196,26 @@ exports.getOpeningApplications = async (req, res, next) => {
 // @access  Private (opening owner only)
 // ============================================
 exports.acceptApplication = async (req, res, next) => {
+    const t = await sequelize.transaction();
+
     try {
-        const application = await Application.findById(req.params.id)
-            .populate('opening')
-            .populate('applicant', 'name');
+        const application = await Application.findByPk(req.params.id, {
+            include: [
+                {
+                    model: Opening,
+                    as: 'opening'
+                },
+                {
+                    model: User,
+                    as: 'applicant',
+                    attributes: ['id', 'name']
+                }
+            ],
+            transaction: t
+        });
 
         if (!application) {
+            await t.rollback();
             return res.status(404).json({
                 success: false,
                 message: 'Application not found'
@@ -179,7 +223,8 @@ exports.acceptApplication = async (req, res, next) => {
         }
 
         // Verify ownership of opening
-        if (application.opening.creator.toString() !== req.user.id) {
+        if (application.opening.creatorId !== req.user.id) {
+            await t.rollback();
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to accept this application'
@@ -188,6 +233,7 @@ exports.acceptApplication = async (req, res, next) => {
 
         // Check if already processed
         if (application.status !== 'pending') {
+            await t.rollback();
             return res.status(400).json({
                 success: false,
                 message: `Application already ${application.status}`
@@ -196,6 +242,7 @@ exports.acceptApplication = async (req, res, next) => {
 
         // Check if slots available
         if (application.opening.filledSlots >= application.opening.totalSlots) {
+            await t.rollback();
             return res.status(400).json({
                 success: false,
                 message: 'No more slots available'
@@ -204,44 +251,51 @@ exports.acceptApplication = async (req, res, next) => {
 
         // Update application status
         application.status = 'accepted';
-        await application.save();
+        await application.save({ transaction: t });
 
         // Update opening filled slots
-        await Opening.findByIdAndUpdate(application.opening._id, {
-            $inc: { filledSlots: 1 }
-        });
+        application.opening.filledSlots += 1;
+        await application.opening.save({ transaction: t });
 
         // Create team or add member to existing team
-        let team = await Team.findOne({ opening: application.opening._id });
+        let team = await Team.findOne({
+            where: { openingId: application.opening.id },
+            transaction: t
+        });
 
         if (!team) {
             // Create new team with opening owner and first accepted member
             team = await Team.create({
-                opening: application.opening._id,
-                owner: application.opening.creator,
-                members: [application.applicant._id]
-            });
+                openingId: application.opening.id,
+                ownerId: application.opening.creatorId,
+                members: [application.applicantId]
+            }, { transaction: t });
         } else {
             // Add member to existing team
-            await Team.findByIdAndUpdate(team._id, {
-                $addToSet: { members: application.applicant._id }
-            });
+            const currentMembers = Array.isArray(team.members) ? team.members : [];
+            if (!currentMembers.includes(application.applicantId)) {
+                team.members = [...currentMembers, application.applicantId];
+                await team.save({ transaction: t });
+            }
         }
 
         // Create notification for applicant
         await Notification.create({
-            user: application.applicant._id,
+            userId: application.applicantId,
             type: 'application_accepted',
             message: `Your application for "${application.opening.title}" was accepted!`,
-            relatedId: application.opening._id,
+            relatedId: application.opening.id,
             relatedModel: 'Opening'
-        });
+        }, { transaction: t });
+
+        await t.commit();
 
         res.status(200).json({
             success: true,
             data: application
         });
     } catch (error) {
+        await t.rollback();
         next(error);
     }
 };
@@ -253,9 +307,19 @@ exports.acceptApplication = async (req, res, next) => {
 // ============================================
 exports.rejectApplication = async (req, res, next) => {
     try {
-        const application = await Application.findById(req.params.id)
-            .populate('opening')
-            .populate('applicant', 'name');
+        const application = await Application.findByPk(req.params.id, {
+            include: [
+                {
+                    model: Opening,
+                    as: 'opening'
+                },
+                {
+                    model: User,
+                    as: 'applicant',
+                    attributes: ['id', 'name']
+                }
+            ]
+        });
 
         if (!application) {
             return res.status(404).json({
@@ -265,7 +329,7 @@ exports.rejectApplication = async (req, res, next) => {
         }
 
         // Verify ownership of opening
-        if (application.opening.creator.toString() !== req.user.id) {
+        if (application.opening.creatorId !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Not authorized to reject this application'
@@ -286,10 +350,10 @@ exports.rejectApplication = async (req, res, next) => {
 
         // Create notification for applicant
         await Notification.create({
-            user: application.applicant._id,
+            userId: application.applicantId,
             type: 'application_rejected',
             message: `Your application for "${application.opening.title}" was not accepted`,
-            relatedId: application.opening._id,
+            relatedId: application.opening.id,
             relatedModel: 'Opening'
         });
 

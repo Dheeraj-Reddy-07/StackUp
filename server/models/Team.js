@@ -4,34 +4,50 @@
 // Represents an accepted team for an opening.
 // Contains the team owner and accepted members.
 
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const teamSchema = new mongoose.Schema({
-    // Reference to the related opening
-    opening: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Opening',
-        required: true
+const Team = sequelize.define('Team', {
+    id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true
     },
 
-    // Team owner (opening creator)
-    owner: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+    // Reference to the related opening (foreign key)
+    openingId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        unique: true,  // Each opening can have only one team
+        references: {
+            model: 'openings',
+            key: 'id'
+        }
     },
 
-    // Array of accepted team members
-    members: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    }],
+    // Team owner (opening creator) - foreign key
+    ownerId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: 'users',
+            key: 'id'
+        }
+    },
 
-    // Team creation timestamp
-    createdAt: {
-        type: Date,
-        default: Date.now
+    // Array of accepted team members (stored as JSONB array of user IDs)
+    members: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+        defaultValue: []
     }
+}, {
+    tableName: 'teams',
+    timestamps: true,
+    indexes: [
+        { unique: true, fields: ['openingId'] },
+        { fields: ['ownerId'] }
+    ]
 });
 
 // ============================================
@@ -40,31 +56,23 @@ const teamSchema = new mongoose.Schema({
 
 /**
  * Check if a user is a member of this team
- * @param {ObjectId} userId - User ID to check
+ * @param {number} userId - User ID to check
  * @returns {boolean} - True if user is owner or member
  */
-teamSchema.methods.isMember = function (userId) {
-    const userIdStr = userId.toString();
-    // Handle both populated and non-populated owner
-    const ownerId = this.owner._id ? this.owner._id.toString() : this.owner.toString();
-    
+Team.prototype.isMember = function (userId) {
+    const userIdNum = parseInt(userId);
+
     // Check if user is owner
-    if (ownerId === userIdStr) {
+    if (this.ownerId === userIdNum) {
         return true;
     }
-    
-    // Check if user is in members array (handle both populated and non-populated)
-    return this.members.some(member => {
-        const memberId = member._id ? member._id.toString() : member.toString();
-        return memberId === userIdStr;
-    });
+
+    // Check if user is in members array
+    if (Array.isArray(this.members)) {
+        return this.members.includes(userIdNum);
+    }
+
+    return false;
 };
 
-// ============================================
-// Indexes
-// ============================================
-teamSchema.index({ opening: 1 }, { unique: true });
-teamSchema.index({ owner: 1 });
-teamSchema.index({ members: 1 });
-
-module.exports = mongoose.model('Team', teamSchema);
+module.exports = Team;

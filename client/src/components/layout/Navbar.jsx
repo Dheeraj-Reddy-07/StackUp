@@ -47,7 +47,7 @@ const Navbar = () => {
         // Mark as read if unread
         if (!notification.read) {
             try {
-                await markAsRead(notification._id);
+                await markAsRead(notification.id);
                 await fetchNotifications();
             } catch (error) {
                 console.error('Failed to mark as read');
@@ -133,6 +133,15 @@ const Navbar = () => {
 
                     {/* Desktop Navigation */}
                     <div className="hidden md:flex items-center gap-6">
+                        {isAuthenticated && (
+                            <Link
+                                to="/dashboard"
+                                className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] font-medium transition-colors"
+                            >
+                                Dashboard
+                            </Link>
+                        )}
+
                         <Link
                             to="/browse"
                             className="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] font-medium transition-colors"
@@ -194,7 +203,7 @@ const Navbar = () => {
                                                     <div className="overflow-y-auto flex-1">
                                                         {notifications.map((notification) => (
                                                             <button
-                                                                key={notification._id}
+                                                                key={notification.id}
                                                                 onClick={() => handleNotificationClick(notification)}
                                                                 className={`w-full text-left px-4 py-3 hover:bg-[var(--color-bg-tertiary)] transition-colors border-b border-[var(--color-border)] ${!notification.read ? 'bg-[var(--color-primary-50)] dark:bg-[var(--color-primary-900)]/20' : ''
                                                                     }`}

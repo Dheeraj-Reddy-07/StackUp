@@ -91,7 +91,7 @@ const CreateOpeningPage = () => {
         try {
             const response = await createOpening(formData);
             toast.success('Opening created successfully!');
-            navigate(`/openings/${response.data._id}`);
+            navigate(`/openings/${response.data.id}`);
         } catch (error) {
             const message = error.response?.data?.message || 'Failed to create opening';
             toast.error(message);
@@ -141,8 +141,8 @@ const CreateOpeningPage = () => {
                                         type="button"
                                         onClick={() => setFormData(prev => ({ ...prev, projectType: type.value }))}
                                         className={`p-4 rounded-xl border-2 text-left transition-all ${formData.projectType === type.value
-                                                ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
-                                                : 'border-[var(--color-border)] hover:border-[var(--color-text-tertiary)]'
+                                            ? 'border-primary-600 bg-primary-50 dark:bg-primary-900/20'
+                                            : 'border-[var(--color-border)] hover:border-[var(--color-text-tertiary)]'
                                             }`}
                                     >
                                         <div className="font-medium text-[var(--color-text-primary)]">{type.label}</div>

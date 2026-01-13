@@ -3,8 +3,8 @@
 // ============================================
 // Handle team operations and member access
 
-const Team = require('../models/Team');
-const Opening = require('../models/Opening');
+const { Team, Opening, User } = require('../models');
+const { Op } = require('sequelize');
 
 // ============================================
 // @desc    Get user's teams (as owner or member)
@@ -13,21 +13,43 @@ const Opening = require('../models/Opening');
 // ============================================
 exports.getMyTeams = async (req, res, next) => {
     try {
-        const teams = await Team.find({
-            $or: [
-                { owner: req.user.id },
-                { members: req.user.id }
-            ]
-        })
-            .populate('opening', 'title projectType status')
-            .populate('owner', 'name email college')
-            .populate('members', 'name email college skills')
-            .sort({ createdAt: -1 });
+        // Find teams where user is owner OR in members array
+        const allTeams = await Team.findAll({
+            include: [
+                {
+                    model: Opening,
+                    as: 'opening',
+                    attributes: ['id', 'title', 'projectType', 'status']
+                },
+                {
+                    model: User,
+                    as: 'owner',
+                    attributes: ['id', 'name', 'email', 'college']
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        // Filter teams where user is member (including owner)
+        const myTeams = allTeams.filter(team => team.isMember(req.user.id));
+
+        // Load member details for each team
+        const teamsWithMembers = await Promise.all(myTeams.map(async (team) => {
+            const memberIds = Array.isArray(team.members) ? team.members : [];
+            const members = await User.findAll({
+                where: { id: { [Op.in]: memberIds } },
+                attributes: ['id', 'name', 'email', 'college', 'skills']
+            });
+            return {
+                ...team.toJSON(),
+                membersData: members
+            };
+        }));
 
         res.status(200).json({
             success: true,
-            count: teams.length,
-            data: teams
+            count: teamsWithMembers.length,
+            data: teamsWithMembers
         });
     } catch (error) {
         next(error);
@@ -41,10 +63,20 @@ exports.getMyTeams = async (req, res, next) => {
 // ============================================
 exports.getTeam = async (req, res, next) => {
     try {
-        const team = await Team.findById(req.params.id)
-            .populate('opening', 'title description projectType status requiredSkills totalSlots filledSlots')
-            .populate('owner', 'name email college skills bio')
-            .populate('members', 'name email college skills bio');
+        const team = await Team.findByPk(req.params.id, {
+            include: [
+                {
+                    model: Opening,
+                    as: 'opening',
+                    attributes: ['id', 'title', 'description', 'projectType', 'status', 'requiredSkills', 'totalSlots', 'filledSlots']
+                },
+                {
+                    model: User,
+                    as: 'owner',
+                    attributes: ['id', 'name', 'email', 'college', 'skills', 'bio']
+                }
+            ]
+        });
 
         if (!team) {
             return res.status(404).json({
@@ -61,9 +93,21 @@ exports.getTeam = async (req, res, next) => {
             });
         }
 
+        // Load member details
+        const memberIds = Array.isArray(team.members) ? team.members : [];
+        const members = await User.findAll({
+            where: { id: { [Op.in]: memberIds } },
+            attributes: ['id', 'name', 'email', 'college', 'skills', 'bio']
+        });
+
+        const teamData = {
+            ...team.toJSON(),
+            membersData: members
+        };
+
         res.status(200).json({
             success: true,
-            data: team
+            data: teamData
         });
     } catch (error) {
         next(error);
@@ -77,10 +121,21 @@ exports.getTeam = async (req, res, next) => {
 // ============================================
 exports.getTeamByOpening = async (req, res, next) => {
     try {
-        const team = await Team.findOne({ opening: req.params.openingId })
-            .populate('opening', 'title description projectType status requiredSkills totalSlots filledSlots')
-            .populate('owner', 'name email college skills bio')
-            .populate('members', 'name email college skills bio');
+        const team = await Team.findOne({
+            where: { openingId: req.params.openingId },
+            include: [
+                {
+                    model: Opening,
+                    as: 'opening',
+                    attributes: ['id', 'title', 'description', 'projectType', 'status', 'requiredSkills', 'totalSlots', 'filledSlots']
+                },
+                {
+                    model: User,
+                    as: 'owner',
+                    attributes: ['id', 'name', 'email', 'college', 'skills', 'bio']
+                }
+            ]
+        });
 
         if (!team) {
             return res.status(404).json({
@@ -97,9 +152,21 @@ exports.getTeamByOpening = async (req, res, next) => {
             });
         }
 
+        // Load member details
+        const memberIds = Array.isArray(team.members) ? team.members : [];
+        const members = await User.findAll({
+            where: { id: { [Op.in]: memberIds } },
+            attributes: ['id', 'name', 'email', 'college', 'skills', 'bio']
+        });
+
+        const teamData = {
+            ...team.toJSON(),
+            membersData: members
+        };
+
         res.status(200).json({
             success: true,
-            data: team
+            data: teamData
         });
     } catch (error) {
         next(error);

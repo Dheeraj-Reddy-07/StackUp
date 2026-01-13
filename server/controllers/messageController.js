@@ -3,8 +3,8 @@
 // ============================================
 // Handle team chat messages
 
-const Message = require('../models/Message');
-const Team = require('../models/Team');
+const { Message, Team, User } = require('../models');
+const { Op } = require('sequelize');
 
 // ============================================
 // @desc    Get messages for a team
@@ -13,7 +13,7 @@ const Team = require('../models/Team');
 // ============================================
 exports.getMessages = async (req, res, next) => {
     try {
-        const team = await Team.findById(req.params.teamId);
+        const team = await Team.findByPk(req.params.teamId);
 
         if (!team) {
             return res.status(404).json({
@@ -31,37 +31,58 @@ exports.getMessages = async (req, res, next) => {
         }
 
         // Get messages with sender info
-        const messages = await Message.find({ team: req.params.teamId })
-            .populate('sender', 'name email')
-            .sort({ createdAt: 1 })
-            .limit(100); // Limit to last 100 messages
-
-        // Mark messages as read by current user when fetching
-        const unreadMessages = await Message.find({
-            team: req.params.teamId,
-            sender: { $ne: req.user.id }, // Not sent by current user
-            readBy: { $ne: req.user.id } // Not already read by current user
+        const messages = await Message.findAll({
+            where: { teamId: req.params.teamId },
+            include: [{
+                model: User,
+                as: 'sender',
+                attributes: ['id', 'name', 'email']
+            }],
+            order: [['createdAt', 'ASC']],
+            limit: 100 // Limit to last 100 messages
         });
 
-        // Mark as read
-        for (const msg of unreadMessages) {
-            if (!msg.readBy.includes(req.user.id)) {
-                msg.readBy.push(req.user.id);
-                await msg.save();
+        // Mark unread messages as read by current user
+        for (const msg of messages) {
+            if (msg.senderId !== req.user.id) {
+                const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+                if (!readBy.includes(req.user.id)) {
+                    msg.readBy = [...readBy, req.user.id];
+                    await msg.save();
+                }
             }
         }
 
-        // Re-fetch messages with updated readBy
-        const updatedMessages = await Message.find({ team: req.params.teamId })
-            .populate('sender', 'name email')
-            .populate('readBy', 'name')
-            .sort({ createdAt: 1 })
-            .limit(100);
+        // Re-fetch messages with updated readBy and populate readBy users
+        const updatedMessages = await Message.findAll({
+            where: { teamId: req.params.teamId },
+            include: [{
+                model: User,
+                as: 'sender',
+                attributes: ['id', 'name', 'email']
+            }],
+            order: [['createdAt', 'ASC']],
+            limit: 100
+        });
+
+        // Load readBy user data manually (since JSONB array can't be populated directly)
+        const messagesWithReadBy = await Promise.all(updatedMessages.map(async (msg) => {
+            const readByIds = Array.isArray(msg.readBy) ? msg.readBy : [];
+            const readByUsers = readByIds.length > 0 ? await User.findAll({
+                where: { id: { [Op.in]: readByIds } },
+                attributes: ['id', 'name']
+            }) : [];
+
+            return {
+                ...msg.toJSON(),
+                readByUsers
+            };
+        }));
 
         res.status(200).json({
             success: true,
-            count: updatedMessages.length,
-            data: updatedMessages
+            count: messagesWithReadBy.length,
+            data: messagesWithReadBy
         });
     } catch (error) {
         next(error);
@@ -76,7 +97,7 @@ exports.getMessages = async (req, res, next) => {
 exports.sendMessage = async (req, res, next) => {
     try {
         const { content } = req.body;
-        const team = await Team.findById(req.params.teamId);
+        const team = await Team.findByPk(req.params.teamId);
 
         if (!team) {
             return res.status(404).json({
@@ -95,13 +116,19 @@ exports.sendMessage = async (req, res, next) => {
 
         // Create message
         const message = await Message.create({
-            team: req.params.teamId,
-            sender: req.user.id,
+            teamId: req.params.teamId,
+            senderId: req.user.id,
             content
         });
 
-        // Populate sender info
-        await message.populate('sender', 'name email');
+        // Reload with sender info
+        await message.reload({
+            include: [{
+                model: User,
+                as: 'sender',
+                attributes: ['id', 'name', 'email']
+            }]
+        });
 
         res.status(201).json({
             success: true,
@@ -122,28 +149,32 @@ exports.getChatStats = async (req, res, next) => {
         const userId = req.user.id;
 
         // Get all teams the user is a member of
-        const teams = await Team.find({
-            $or: [
-                { owner: userId },
-                { members: userId }
-            ]
-        }).select('_id');
+        const allTeams = await Team.findAll({
+            attributes: ['id']
+        });
 
-        const teamIds = teams.map(t => t._id);
+        const teamIds = allTeams.filter(team => team.isMember(userId)).map(t => t.id);
 
         // Get unread counts and last messages for each team
         const chatStats = await Promise.all(teamIds.map(async (teamId) => {
-            // Get unread message count
-            const unreadCount = await Message.countDocuments({
-                team: teamId,
-                sender: { $ne: userId }, // Not sent by current user  
-                readBy: { $ne: userId } // Not already read by current user
+            // Count unread messages
+            const messages = await Message.findAll({
+                where: { teamId },
+                attributes: ['id', 'senderId', 'readBy', 'createdAt']
             });
 
+            const unreadCount = messages.filter(msg => {
+                if (msg.senderId === userId) return false;
+                const readBy = Array.isArray(msg.readBy) ? msg.readBy : [];
+                return !readBy.includes(userId);
+            }).length;
+
             // Get last message
-            const lastMessage = await Message.findOne({ team: teamId })
-                .sort({ createdAt: -1 })
-                .select('createdAt');
+            const lastMessage = await Message.findOne({
+                where: { teamId },
+                order: [['createdAt', 'DESC']],
+                attributes: ['createdAt']
+            });
 
             return {
                 teamId: teamId.toString(),
