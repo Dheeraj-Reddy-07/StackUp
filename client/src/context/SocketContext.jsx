@@ -7,6 +7,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { isDemoMode, createDemoSocket } from '../services/demoData';
 import toast from 'react-hot-toast';
 
 const SocketContext = createContext(null);
@@ -28,6 +29,14 @@ export const SocketProvider = ({ children }) => {
     const { token, isAuthenticated } = useAuth();
 
     useEffect(() => {
+        // Demo mode: use an in-memory stub socket (no real connection)
+        if (isDemoMode() && isAuthenticated) {
+            const demo = createDemoSocket();
+            setSocket(demo);
+            setConnected(true);
+            return () => { setSocket(null); setConnected(false); };
+        }
+
         // Only connect if authenticated
         if (!isAuthenticated || !token) {
             if (socket) {

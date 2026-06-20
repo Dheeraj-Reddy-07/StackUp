@@ -9,7 +9,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { Navbar, Footer, ProtectedRoute } from './components/layout';
+import { Navbar, Footer, ProtectedRoute, DemoBanner } from './components/layout';
 import {
   LandingPage,
   LoginPage,
@@ -67,6 +67,8 @@ function App() {
                 },
               }}
             />
+
+            <DemoBanner />
 
             <Routes>
               {/* Public routes with Navbar/Footer */}

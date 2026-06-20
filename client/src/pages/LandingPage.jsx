@@ -18,10 +18,17 @@ import {
     MessageSquare
 } from 'lucide-react';
 import Button from '../components/ui/Button';
+import { enableDemoMode } from '../services/demoData';
 
 const LandingPage = () => {
     const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
+
+    // Enter demo mode: explore the app with sample data, no login/backend
+    const startDemo = () => {
+        enableDemoMode();
+        window.location.href = '/dashboard';
+    };
 
     // Redirect authenticated users to welcome page
     useEffect(() => {
@@ -93,6 +100,14 @@ const LandingPage = () => {
                                 </Button>
                             </Link>
                         </div>
+                        {!isAuthenticated && (
+                            <button
+                                onClick={startDemo}
+                                className="mt-5 text-primary-100 underline underline-offset-4 hover:text-white transition-colors text-sm font-medium"
+                            >
+                                ✨ Try the live demo — no sign up needed
+                            </button>
+                        )}
                     </div>
 
                     {/* Stats */}

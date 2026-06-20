@@ -8,6 +8,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Layers, ArrowRight } from 'lucide-react';
 import { Button, Input, Card } from '../components/ui';
+import { enableDemoMode } from '../services/demoData';
 import toast from 'react-hot-toast';
 
 const LoginPage = () => {
@@ -114,6 +115,22 @@ const LoginPage = () => {
                             <ArrowRight className="w-5 h-5 ml-2" />
                         </Button>
                     </form>
+
+                    {/* Demo mode */}
+                    <div className="mt-6 pt-6 border-t border-[var(--color-border)]">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="lg"
+                            className="w-full border border-[var(--color-border)]"
+                            onClick={() => {
+                                enableDemoMode();
+                                window.location.href = '/dashboard';
+                            }}
+                        >
+                            ✨ Explore demo (no login)
+                        </Button>
+                    </div>
                 </Card>
 
                 {/* Sign up link */}

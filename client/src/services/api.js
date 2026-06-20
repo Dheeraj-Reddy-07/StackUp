@@ -5,13 +5,20 @@
 // Handles auth headers and error interceptors
 
 import axios from 'axios';
+import { isDemoMode, demoAdapter } from './demoData';
 
-// Create axios instance
+// Resolve the real network adapter once (xhr/fetch in the browser)
+const realAdapter = axios.getAdapter(axios.defaults.adapter);
+
+// Create axios instance.
+// In demo mode every request is served from in-memory mock data
+// (see demoData.js) so the app works with no backend.
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || '/api',
     headers: {
         'Content-Type': 'application/json'
-    }
+    },
+    adapter: (config) => (isDemoMode() ? demoAdapter(config) : realAdapter(config))
 });
 
 // Request interceptor - add auth token
