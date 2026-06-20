@@ -1,8 +1,9 @@
-# Netlify config for the StackUp frontend (client/ is a Vite + React SPA)
+# Netlify config for the StackUp frontend (client/ is a Vite + React SPA).
+# Self-contained and run from the repo ROOT (no base directory) so it does
+# not conflict with any build settings configured in the Netlify dashboard.
 [build]
-  base = "client"            # run the build inside the client/ folder
-  command = "npm run build"  # produces client/dist
-  publish = "dist"           # publish client/dist (relative to base)
+  command = "npm --prefix client ci && npm --prefix client run build"
+  publish = "client/dist"
 
 # SPA fallback: send all routes to index.html so react-router works on refresh
 [[redirects]]
