@@ -6,6 +6,13 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # These are backend-only env vars configured on the site but unused by the
+  # frontend. Their dev values (e.g. localhost, 5000) coincidentally appear in
+  # the client bundle's localhost fallback, so exclude them from secret scanning.
+  # (Ideally also delete them from the Netlify dashboard — they belong on the API host.)
+  SECRETS_SCAN_OMIT_KEYS = "CLIENT_URL,DB_HOST,DB_NAME,DB_PASSWORD,DB_PORT,DB_USER,JWT_EXPIRE,JWT_SECRET,NODE_ENV,PORT"
+
 # SPA fallback: send all routes to index.html so react-router works on refresh
 [[redirects]]
   from = "/*"
