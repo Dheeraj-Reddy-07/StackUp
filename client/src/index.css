@@ -643,6 +643,52 @@ a,
   animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* Staggered entrance helper — pair with .animate-slide-up */
+.animate-slide-up {
+  opacity: 0;
+}
+
+/* Slow floating blobs for hero ambiance */
+.animate-float {
+  animation: float 9s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float 14s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(0, -28px) scale(1.06);
+  }
+}
+
+/* Subtle gradient drift for the hero aurora */
+.animate-aurora {
+  background-size: 200% 200%;
+  animation: aurora 18s ease infinite;
+}
+
+@keyframes aurora {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-aurora {
+    animation: none;
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -739,4 +785,17 @@ a,
 
 .shadow-glow {
   box-shadow: var(--shadow-glow-primary);
+}
+
+/* Dotted grid backdrop for hero / CTA panels */
+.bg-grid-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 40%, transparent 100%);
+}
+
+/* Hairline gradient used to "connect" the How-It-Works steps */
+.step-connector {
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.35), transparent);
 }
