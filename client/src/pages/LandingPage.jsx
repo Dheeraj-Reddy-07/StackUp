@@ -108,7 +108,7 @@ const LandingPage = () => {
                             Built for engineering students
                         </div>
 
-                        <h1 className="animate-slide-up text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-[1.08] tracking-tight" style={{ animationDelay: '0.05s' }}>
+                        <h1 className="animate-slide-up !text-white text-4xl sm:text-5xl lg:text-6xl font-bold mb-6 leading-[1.08] tracking-tight" style={{ animationDelay: '0.05s' }}>
                             Build Your Dream Team
                             <span className="block mt-2 bg-gradient-to-r from-indigo-200 via-cyan-200 to-violet-200 bg-clip-text text-transparent">
                                 For Any Tech Challenge
@@ -122,13 +122,13 @@ const LandingPage = () => {
 
                         <div className="animate-slide-up flex flex-col sm:flex-row gap-4 justify-center" style={{ animationDelay: '0.18s' }}>
                             <Link to={isAuthenticated ? '/openings/new' : '/signup'}>
-                                <Button size="lg" className="w-full sm:w-auto !bg-white !text-indigo-700 hover:!bg-indigo-50 shadow-xl shadow-indigo-950/40">
+                                <Button size="lg" className="w-full sm:w-auto !bg-none !bg-white !text-indigo-700 hover:!bg-indigo-50 shadow-xl shadow-indigo-950/40 font-semibold">
                                     Post an Opening
                                     <ArrowRight className="w-5 h-5 ml-2" />
                                 </Button>
                             </Link>
                             <Link to="/browse">
-                                <Button size="lg" variant="ghost" className="w-full sm:w-auto !text-white border border-white/25 bg-white/5 backdrop-blur-md hover:!bg-white/15">
+                                <Button size="lg" variant="ghost" className="w-full sm:w-auto !text-white border border-white/30 bg-white/10 backdrop-blur-md hover:!bg-white/20 font-semibold">
                                     Browse Openings
                                 </Button>
                             </Link>
@@ -141,7 +141,7 @@ const LandingPage = () => {
                                 style={{ animationDelay: '0.24s' }}
                             >
                                 <Sparkles className="w-4 h-4 text-cyan-300" />
-                                Try the live demo — no sign up needed
+                                Try the live demo, no sign-up needed
                                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                             </button>
                         )}
@@ -329,7 +329,7 @@ const LandingPage = () => {
                                 hackathons, projects, and startups.
                             </p>
                             <Link to={isAuthenticated ? '/browse' : '/signup'}>
-                                <Button size="lg" className="!bg-white !text-indigo-700 hover:!bg-indigo-50 shadow-xl shadow-indigo-950/30">
+                                <Button size="lg" className="!bg-none !bg-white !text-indigo-700 hover:!bg-indigo-50 shadow-xl shadow-indigo-950/30 font-semibold">
                                     Get Started Now
                                     <ArrowRight className="w-5 h-5 ml-2" />
                                 </Button>

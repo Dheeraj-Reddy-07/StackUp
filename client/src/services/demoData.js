@@ -1,5 +1,5 @@
 // ============================================
-// Demo Mode — client-side mock backend
+// Demo Mode - client-side mock backend
 // ============================================
 // Lets visitors explore StackUp without a backend or login.
 // When demo mode is ON:
@@ -49,7 +49,7 @@ const richCreator = (u) => ({ id: u.id, name: u.name, email: u.email, college: u
 let openings = [
     { id: 1, title: 'KisanConnect - Smart Mandi System', description: 'Problem Statement 1284 (SIH 2024): a blockchain-based supply chain app so farmers can sell directly to consumers, eliminating middlemen. Need a blockchain dev and a UI designer.', projectType: 'hackathon', requiredSkills: ['React Native', 'Solidity', 'Supply Chain'], totalSlots: 4, filledSlots: 1, creatorId: 1, status: 'open', createdAt: ago(2 * DAY) },
     { id: 2, title: 'RuralHealth AI - Diagnostics App', description: 'An offline-first mobile app using on-device ML to detect skin diseases in remote villages. Looking for an Android dev comfortable with TensorFlow Lite.', projectType: 'hackathon', requiredSkills: ['Flutter', 'TensorFlow Lite', 'SQLite'], totalSlots: 4, filledSlots: 2, creatorId: 4, status: 'open', createdAt: ago(5 * HOUR) },
-    { id: 3, title: 'DeFi Lending Protocol', description: 'A decentralized peer-to-peer lending platform on Polygon. Core contracts ready — need a frontend dev to build the dashboard with RainbowKit + Wagmi.', projectType: 'hackathon', requiredSkills: ['React.js', 'Ethers.js', 'TailwindCSS'], totalSlots: 3, filledSlots: 2, creatorId: 3, status: 'open', createdAt: ago(1 * DAY) },
+    { id: 3, title: 'DeFi Lending Protocol', description: 'A decentralized peer-to-peer lending platform on Polygon. Core contracts ready, need a frontend dev to build the dashboard with RainbowKit + Wagmi.', projectType: 'hackathon', requiredSkills: ['React.js', 'Ethers.js', 'TailwindCSS'], totalSlots: 3, filledSlots: 2, creatorId: 3, status: 'open', createdAt: ago(1 * DAY) },
     { id: 4, title: 'EduSetu - Vernacular Learning', description: 'A gamified learning platform for tier-2/3 city students in local languages. Heavy focus on UX and engagement.', projectType: 'project', requiredSkills: ['MERN Stack', 'Gamification', 'UX'], totalSlots: 4, filledSlots: 2, creatorId: 2, status: 'open', createdAt: ago(3 * DAY) },
 ];
 
@@ -57,13 +57,13 @@ const withLeanCreator = (o) => ({ ...o, creator: leanCreator(users[o.creatorId])
 const withRichCreator = (o) => ({ ...o, creator: richCreator(users[o.creatorId]) });
 const findOpening = (id) => openings.find((o) => o.id === id);
 
-// Arjun's own applications (My Applications tab) — nest opening.creator.name
+// Arjun's own applications (My Applications tab) - nest opening.creator.name
 let myApplications = [
     { id: 1, openingId: 2, applicantId: 1, message: 'I have shipped offline-first apps before and can help with TF Lite integration.', resumeUrl: null, status: 'pending', createdAt: ago(4 * HOUR), opening: { id: 2, title: 'RuralHealth AI - Diagnostics App', projectType: 'hackathon', status: 'open', creator: { id: 4, name: 'Ananya Iyer' } } },
-    { id: 2, openingId: 3, applicantId: 1, message: 'Frontend dev with Wagmi/Ethers experience — happy to build the dashboard.', resumeUrl: null, status: 'accepted', createdAt: ago(1 * DAY), opening: { id: 3, title: 'DeFi Lending Protocol', projectType: 'hackathon', status: 'open', creator: { id: 3, name: 'Rohan Verma' } } },
+    { id: 2, openingId: 3, applicantId: 1, message: 'Frontend dev with Wagmi/Ethers experience, happy to build the dashboard.', resumeUrl: null, status: 'accepted', createdAt: ago(1 * DAY), opening: { id: 3, title: 'DeFi Lending Protocol', projectType: 'hackathon', status: 'open', creator: { id: 3, name: 'Rohan Verma' } } },
 ];
 
-// Applications received on Arjun's opening (#1) — owner view, with applicant detail
+// Applications received on Arjun's opening (#1) - owner view, with applicant detail
 const richApplicant = (u, extra = {}) => ({ id: u.id, name: u.name, email: u.email, college: u.college, skills: u.skills, bio: u.bio, resumeUrl: u.resumeUrl, ...extra });
 let openingApplications = {
     1: [
@@ -101,7 +101,7 @@ let messagesByTeam = {
     1: [
         { id: 'm1', teamId: 1, content: "Hey Arjun, excited for KisanConnect! I've set up the repo.", sender: sender(users[5]), readBy: [1, 5], createdAt: ago(3 * HOUR) },
         { id: 'm2', teamId: 1, content: "Awesome Vikram. Let's finalize the supply-chain schema today.", sender: sender(users[1]), readBy: [1, 5], createdAt: ago(2 * HOUR) },
-        { id: 'm3', teamId: 1, content: 'Done — pushed the ER diagram. Take a look when free.', sender: sender(users[5]), readBy: [5], createdAt: ago(20 * MIN) },
+        { id: 'm3', teamId: 1, content: 'Done, pushed the ER diagram. Take a look when free.', sender: sender(users[5]), readBy: [5], createdAt: ago(20 * MIN) },
     ],
     3: [
         { id: 'm4', teamId: 3, content: 'Welcome to the DeFi team, Arjun! 🎉', sender: sender(users[3]), readBy: [1, 3], createdAt: ago(1 * DAY) },
